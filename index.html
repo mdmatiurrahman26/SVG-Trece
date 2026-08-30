@@ -2,122 +2,556 @@
 <html lang="bn">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>লাইভ SVG লোগো মেকার</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>প্রো ভেক্টর ও বেজিয়ার লোগো স্টুডিও</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #111827; color: #fff; text-align: center; padding: 20px; margin: 0; }
-    .container { max-width: 500px; margin: 0 auto; background: #1f2937; padding: 20px; border-radius: 12px; }
-    h2 { color: #38bdf8; margin-bottom: 15px; }
+    * { box-sizing: border-box; touch-action: manipulation; }
+    body { font-family: Arial, sans-serif; background: #0f172a; color: #fff; text-align: center; padding: 10px; margin: 0; user-select: none; }
+    .container { max-width: 500px; margin: 0 auto; background: #1e293b; padding: 12px; border-radius: 12px; }
+    h3 { color: #38bdf8; margin: 0 0 10px 0; }
     
-    .toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap; }
-    .toolbar button, .toolbar input { padding: 8px 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
-    .toolbar button { background: #374151; color: #fff; }
-    .toolbar button.active { background: #0284c7; }
+    .top-bar { display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 10px; background: #334155; padding: 6px; border-radius: 8px; }
+    .toolbar-row { display: flex; gap: 6px; justify-content: center; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
     
-    #canvas-container { background: #ffffff; width: 100%; height: 320px; border-radius: 8px; border: 2px solid #38bdf8; touch-action: none; cursor: crosshair; }
+    .btn { background: #475569; color: #fff; border: 1px solid #64748b; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn.active { background: #0284c7; border-color: #38bdf8; }
     
-    .action-btn { background: #10b981; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 15px; width: 100%; }
-    .action-btn:hover { background: #059669; }
-    .clear-btn { background: #ef4444; margin-top: 10px; }
+    .bezier-actions { display: none; background: #0f172a; padding: 8px; border-radius: 8px; border: 1px solid #38bdf8; margin-bottom: 8px; gap: 6px; justify-content: center; flex-wrap: wrap; }
+    
+    select.btn { background: #475569; color: #fff; outline: none; }
+    input[type="color"] { border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; background: transparent; }
+
+    #canvas-container { 
+      width: 100%; height: 380px; border-radius: 8px; border: 2px solid #38bdf8; touch-action: none; position: relative;
+      background-color: #ffffff; overflow: hidden;
+    }
+    .bg-grid {
+      background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%) !important;
+      background-size: 16px 16px !important;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px !important;
+    }
+
+    svg { width: 100%; height: 100%; }
+    
+    .action-btn { background: #10b981; color: #fff; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; margin-top: 10px; width: 100%; }
+    .del-btn { background: #ef4444; }
+    
+    .node-point { fill: #0284c7; stroke: #ffffff; stroke-width: 2.5; cursor: pointer; }
+    .node-selected { fill: #ef4444 !important; r: 10 !important; }
+    .control-handle { fill: #eab308; stroke: #ffffff; stroke-width: 2; cursor: pointer; }
+    .control-line { stroke: #64748b; stroke-dasharray: 4,4; stroke-width: 1.5; }
   </style>
 </head>
-<body>
+
+
+  <body>
 
 <div class="container">
-  <h2>লাইভ SVG লোগো মেকার</h2>
+  <h3>প্রো ভেক্টর লোগো স্টুডিও</h3>
   
-  <div class="toolbar">
-    <input type="color" id="colorPicker" value="#8B5A2B">
-    <input type="range" id="brushSize" min="2" max="30" value="8">
-    <button id="clearBtn" class="clear-btn" style="margin:0; width:auto;">মুছে ফেলুন</button>
+  <div class="top-bar">
+    <button class="btn" id="undoBtn" title="Undo">↺</button>
+    <button class="btn" id="redoBtn" title="Redo">↻</button>
+    <button class="btn" id="transparentBgBtn" title="Transparent Grid">🏁</button>
+    <label style="font-size:12px;">BG Color:</label>
+    <input type="color" id="bgColorPicker" value="#ffffff">
+  </div>
+
+  <div class="toolbar-row">
+    <button class="btn active" id="toolSelectBtn">🖐️ Select / Edit</button>
+    
+    <select id="shapeGroup" class="btn">
+      <option value="" disabled selected hidden>🎨 Choose Shape</option>
+      <option value="pencil">✏️ Free Hand</option>
+      <option value="bezier">〰️ Bezier Curve (PixelLab Mode)</option>
+      <option value="rect">⬛ Rectangle</option>
+      <option value="line">📏 Line</option>
+      <option value="circle">⚪ Circle</option>
+      <option value="triangle">🔺 Triangle</option>
+    </select>
+
+    <input type="color" id="colorPicker" value="#000000" title="Color">
+    <input type="range" id="brushSize" min="2" max="30" value="5" title="Size">
+  </div>
+
+  <!-- Bezier Toolbar -->
+  <div class="bezier-actions" id="bezierBar">
+    <button class="btn" id="addNodeBtn">➕ Node</button>
+    <button class="btn" id="removeNodeBtn">➖ Node</button>
+    <button class="btn" id="closePathBtn">🔗 Close Path</button>
+    <button class="btn" id="finishBezierBtn" style="background:#10b981;">✅ Done</button>
+  </div>
+
+  <div class="toolbar-row">
+    <button class="btn" id="flipHBtn">↔️ Flip H</button>
+    <button class="btn" id="flipVBtn">↕️ Flip V</button>
+    <button class="btn" id="layerUpBtn">⬆️ Up</button>
+    <button class="btn" id="layerDownBtn">⬇️ Down</button>
+    <button class="btn del-btn" id="deleteBtn">🗑️ Delete</button>
+    <button class="btn del-btn" id="clearAllBtn">🧹 Clear All</button>
   </div>
 
   <div id="canvas-container">
-    <svg id="svgBoard" width="100%" height="100%" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" style="background: #ffffff;"></svg>
+    <svg id="svgBoard" viewBox="0 0 400 380" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
 
   <button id="downloadBtn" class="action-btn">HD SVG লোগো ডাউনলোড করুন</button>
 </div>
 
-<script>
+
+    <script>
   const svgBoard = document.getElementById('svgBoard');
+  const canvasContainer = document.getElementById('canvas-container');
+  const toolSelectBtn = document.getElementById('toolSelectBtn');
+  const shapeGroup = document.getElementById('shapeGroup');
   const colorPicker = document.getElementById('colorPicker');
   const brushSize = document.getElementById('brushSize');
-  const clearBtn = document.getElementById('clearBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const layerUpBtn = document.getElementById('layerUpBtn');
+  const layerDownBtn = document.getElementById('layerDownBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  const transparentBgBtn = document.getElementById('transparentBgBtn');
+  const bgColorPicker = document.getElementById('bgColorPicker');
+  const flipHBtn = document.getElementById('flipHBtn');
+  const flipVBtn = document.getElementById('flipVBtn');
+
+  const bezierBar = document.getElementById('bezierBar');
+  const addNodeBtn = document.getElementById('addNodeBtn');
+  const removeNodeBtn = document.getElementById('removeNodeBtn');
+  const closePathBtn = document.getElementById('closePathBtn');
+  const finishBezierBtn = document.getElementById('finishBezierBtn');
+
+  let mode = 'select';
+  let currentTool = 'pencil';
   let isDrawing = false;
-  let currentPath = null;
+  let startPt = { x: 0, y: 0 };
+  let currentElement = null;
+  let selectedElement = null;
   let pathData = '';
+
+  let historyStack = [];
+  let redoStack = [];
+
+  let bezierNodes = [];
+  let isClosed = false;
+  let selectedNodeIdx = 0;
+  let draggingTarget = null;
+  let bezierGroup = null;
+
+  function saveState() {
+    historyStack.push(svgBoard.innerHTML);
+    redoStack = [];
+  }
+
+  undoBtn.addEventListener('click', () => {
+    if (historyStack.length > 0) {
+      redoStack.push(svgBoard.innerHTML);
+      svgBoard.innerHTML = historyStack.pop();
+      deselect();
+    }
+  });
+
+  redoBtn.addEventListener('click', () => {
+    if (redoStack.length > 0) {
+      historyStack.push(svgBoard.innerHTML);
+      svgBoard.innerHTML = redoStack.pop();
+      deselect();
+    }
+  });
+
+  transparentBgBtn.addEventListener('click', () => {
+    canvasContainer.classList.toggle('bg-grid');
+  });
+
+  bgColorPicker.addEventListener('input', (e) => {
+    canvasContainer.classList.remove('bg-grid');
+    canvasContainer.style.backgroundColor = e.target.value;
+  });
+
+  function activateSelectMode() {
+    mode = 'select';
+    toolSelectBtn.classList.add('active');
+    shapeGroup.classList.remove('active');
+    shapeGroup.value = "";
+    bezierBar.style.display = 'none';
+    commitBezierShape();
+  }
+
+  toolSelectBtn.addEventListener('click', activateSelectMode);
+
+  shapeGroup.addEventListener('change', (e) => {
+    if (e.target.value) {
+      startToolSelection(e.target.value);
+    }
+  });
+
+  function startToolSelection(toolName) {
+    mode = 'draw';
+    currentTool = toolName;
+    shapeGroup.classList.add('active');
+    toolSelectBtn.classList.remove('active');
+    deselect();
+
+    if (currentTool === 'bezier') {
+      bezierBar.style.display = 'flex';
+      initDefaultBezier();
+    } else {
+      bezierBar.style.display = 'none';
+      commitBezierShape();
+    }
+  }
+
+  function initDefaultBezier() {
+    commitBezierShape();
+    bezierNodes = [
+      { x: 100, y: 190, cp1: { x: 130, y: 120 }, cp2: { x: 70, y: 260 } },
+      { x: 300, y: 190, cp1: { x: 270, y: 120 }, cp2: { x: 330, y: 260 } }
+    ];
+    isClosed = false;
+    selectedNodeIdx = 0;
+    renderBezierUI();
+  }
+
+
+        function renderBezierUI() {
+    if (!bezierGroup) {
+      bezierGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      bezierGroup.setAttribute('id', 'bezierInteractiveGroup');
+      svgBoard.appendChild(bezierGroup);
+    }
+    bezierGroup.innerHTML = '';
+
+    if (bezierNodes.length < 2) return;
+
+    let d = `M ${bezierNodes[0].x} ${bezierNodes[0].y}`;
+    for (let i = 1; i < bezierNodes.length; i++) {
+      let prev = bezierNodes[i - 1];
+      let curr = bezierNodes[i];
+      d += ` C ${prev.cp2.x} ${prev.cp2.y}, ${curr.cp1.x} ${curr.cp1.y}, ${curr.x} ${curr.y}`;
+    }
+
+    if (isClosed) {
+      let last = bezierNodes[bezierNodes.length - 1];
+      let first = bezierNodes[0];
+      d += ` C ${last.cp2.x} ${last.cp2.y}, ${first.cp1.x} ${first.cp1.y}, ${first.x} ${first.y} Z`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', colorPicker.value);
+    path.setAttribute('stroke-width', brushSize.value);
+    path.setAttribute('fill', isClosed ? colorPicker.value : 'none');
+    path.setAttribute('stroke-linecap', 'round');
+    bezierGroup.appendChild(path);
+
+    if (selectedNodeIdx !== null && bezierNodes[selectedNodeIdx]) {
+      const activeNode = bezierNodes[selectedNodeIdx];
+
+      createSVGLine(activeNode.x, activeNode.y, activeNode.cp1.x, activeNode.cp1.y);
+      createSVGLine(activeNode.x, activeNode.y, activeNode.cp2.x, activeNode.cp2.y);
+
+      createSVGCircle(activeNode.cp1.x, activeNode.cp1.y, 7, 'control-handle', 'cp1');
+      createSVGCircle(activeNode.cp2.x, activeNode.cp2.y, 7, 'control-handle', 'cp2');
+    }
+
+    bezierNodes.forEach((node, idx) => {
+      const isSelected = idx === selectedNodeIdx;
+      createSVGCircle(node.x, node.y, 8, `node-point ${isSelected ? 'node-selected' : ''}`, 'node', idx);
+    });
+  }
+
+  function createSVGLine(x1, y1, x2, y2) {
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('class', 'control-line');
+    bezierGroup.appendChild(line);
+  }
+
+  function createSVGCircle(cx, cy, r, className, type, index = null) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', r);
+    circle.setAttribute('class', className);
+    circle.setAttribute('data-type', type);
+    if (index !== null) circle.setAttribute('data-index', index);
+    bezierGroup.appendChild(circle);
+  }
+
+  addNodeBtn.addEventListener('click', () => {
+    saveState();
+    const last = bezierNodes[bezierNodes.length - 1];
+    const newX = Math.min(360, last.x + 40);
+    const newY = last.y;
+    bezierNodes.push({
+      x: newX, y: newY,
+      cp1: { x: newX - 20, y: newY - 30 },
+      cp2: { x: newX + 20, y: newY + 30 }
+    });
+    selectedNodeIdx = bezierNodes.length - 1;
+    renderBezierUI();
+  });
+
+  removeNodeBtn.addEventListener('click', () => {
+    if (selectedNodeIdx !== null && bezierNodes.length > 2) {
+      saveState();
+      bezierNodes.splice(selectedNodeIdx, 1);
+      selectedNodeIdx = Math.max(0, selectedNodeIdx - 1);
+      renderBezierUI();
+    }
+  });
+
+  closePathBtn.addEventListener('click', () => {
+    saveState();
+    isClosed = !isClosed;
+    renderBezierUI();
+  });
+
+  finishBezierBtn.addEventListener('click', activateSelectMode);
+
+  function commitBezierShape() {
+    if (bezierGroup) {
+      const path = bezierGroup.querySelector('path');
+      if (path && bezierNodes.length >= 2) {
+        saveState();
+        const finalPath = path.cloneNode(true);
+        finalPath.setAttribute('class', 'vector-shape');
+        finalPath.dataset.bezierData = JSON.stringify({ nodes: bezierNodes, isClosed: isClosed });
+        svgBoard.appendChild(finalPath);
+      }
+      bezierGroup.remove();
+      bezierGroup = null;
+      bezierNodes = [];
+    }
+  }
+
+  function selectShape(el) {
+    deselect();
+    if (!el || el === svgBoard || el.closest('#bezierInteractiveGroup')) return;
+    selectedElement = el;
+    selectedElement.style.outline = '2px dashed #0284c7';
+
+    if (selectedElement.dataset.bezierData) {
+      const data = JSON.parse(selectedElement.dataset.bezierData);
+      bezierNodes = data.nodes;
+      isClosed = data.isClosed;
+      selectedElement.remove();
+      selectedElement = null;
+
+      mode = 'draw';
+      currentTool = 'bezier';
+      shapeGroup.value = 'bezier';
+      shapeGroup.classList.add('active');
+      toolSelectBtn.classList.remove('active');
+      bezierBar.style.display = 'flex';
+      renderBezierUI();
+    }
+  }
 
   function getPoint(e) {
     const rect = svgBoard.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    // SVG ক্যানভাসের স্কেল অনুযায়ী পয়েন্ট হিসাব করা
-    const x = (clientX - rect.left) * (400 / rect.width);
-    const y = (clientY - rect.top) * (320 / rect.height);
-    return { x: x.toFixed(1), y: y.toFixed(1) };
+    return { 
+      x: parseFloat(((clientX - rect.left) * (400 / rect.width)).toFixed(1)), 
+      y: parseFloat(((clientY - rect.top) * (380 / rect.height)).toFixed(1)) 
+    };
   }
 
-  function startDrawing(e) {
+  function deselect() {
+    if (selectedElement) {
+      selectedElement.style.outline = 'none';
+      selectedElement = null;
+    }
+  }
+
+  function handleStart(e) {
+    const target = e.target;
+
+    if (target.getAttribute('data-type')) {
+      const type = target.getAttribute('data-type');
+      if (type === 'node') {
+        selectedNodeIdx = parseInt(target.getAttribute('data-index'));
+        draggingTarget = 'node';
+      } else if (type === 'cp1') {
+        draggingTarget = 'cp1';
+      } else if (type === 'cp2') {
+        draggingTarget = 'cp2';
+      }
+      renderBezierUI();
+      return;
+    }
+
+    if (mode === 'select') {
+      selectShape(target);
+      return;
+    }
+
+    if (currentTool === 'bezier') return;
+
+    saveState();
     isDrawing = true;
-    const pt = getPoint(e);
-    pathData = `M ${pt.x} ${pt.y}`;
+    startPt = getPoint(e);
+    const color = colorPicker.value;
+    const strokeWidth = brushSize.value;
 
-    currentPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    currentPath.setAttribute('d', pathData);
-    currentPath.setAttribute('stroke', colorPicker.value);
-    currentPath.setAttribute('stroke-width', brushSize.value);
-    currentPath.setAttribute('fill', 'none');
-    currentPath.setAttribute('stroke-linecap', 'round');
-    currentPath.setAttribute('stroke-linejoin', 'round');
+    if (currentTool === 'pencil') {
+      pathData = `M ${startPt.x} ${startPt.y}`;
+      currentElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      currentElement.setAttribute('d', pathData);
+      currentElement.setAttribute('stroke', color);
+      currentElement.setAttribute('stroke-width', strokeWidth);
+      currentElement.setAttribute('fill', 'none');
+      currentElement.setAttribute('stroke-linecap', 'round');
+    } else if (currentTool === 'line') {
+      currentElement = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      currentElement.setAttribute('x1', startPt.x); currentElement.setAttribute('y1', startPt.y);
+      currentElement.setAttribute('x2', startPt.x); currentElement.setAttribute('y2', startPt.y);
+      currentElement.setAttribute('stroke', color); currentElement.setAttribute('stroke-width', strokeWidth);
+    } else if (currentTool === 'rect') {
+      currentElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      currentElement.setAttribute('x', startPt.x); currentElement.setAttribute('y', startPt.y);
+      currentElement.setAttribute('width', 0); currentElement.setAttribute('height', 0);
+      currentElement.setAttribute('fill', color);
+    } else if (currentTool === 'circle') {
+      currentElement = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      currentElement.setAttribute('cx', startPt.x); currentElement.setAttribute('cy', startPt.y);
+      currentElement.setAttribute('r', 0); currentElement.setAttribute('fill', color);
+    } else if (currentTool === 'triangle') {
+      currentElement = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      currentElement.setAttribute('fill', color);
+    }
 
-    svgBoard.appendChild(currentPath);
+    if (currentElement) svgBoard.appendChild(currentElement);
   }
 
-  function draw(e) {
-    if (!isDrawing) return;
+  function handleMove(e) {
+    const pt = getPoint(e);
+
+    if (draggingTarget && selectedNodeIdx !== null) {
+      e.preventDefault();
+      const currNode = bezierNodes[selectedNodeIdx];
+      if (draggingTarget === 'node') {
+        const dx = pt.x - currNode.x;
+        const dy = pt.y - currNode.y;
+        currNode.x = pt.x;
+        currNode.y = pt.y;
+        currNode.cp1.x += dx; currNode.cp1.y += dy;
+        currNode.cp2.x += dx; currNode.cp2.y += dy;
+      } else if (draggingTarget === 'cp1') {
+        currNode.cp1.x = pt.x;
+        currNode.cp1.y = pt.y;
+      } else if (draggingTarget === 'cp2') {
+        currNode.cp2.x = pt.x;
+        currNode.cp2.y = pt.y;
+      }
+      renderBezierUI();
+      return;
+    }
+
+    if (!isDrawing || !currentElement) return;
     e.preventDefault();
-    const pt = getPoint(e);
-    pathData += ` L ${pt.x} ${pt.y}`;
-    currentPath.setAttribute('d', pathData);
+
+    if (currentTool === 'pencil') {
+      pathData += ` L ${pt.x} ${pt.y}`;
+      currentElement.setAttribute('d', pathData);
+    } else if (currentTool === 'line') {
+      currentElement.setAttribute('x2', pt.x); currentElement.setAttribute('y2', pt.y);
+    } else if (currentTool === 'rect') {
+      currentElement.setAttribute('x', Math.min(startPt.x, pt.x));
+      currentElement.setAttribute('y', Math.min(startPt.y, pt.y));
+      currentElement.setAttribute('width', Math.abs(pt.x - startPt.x));
+      currentElement.setAttribute('height', Math.abs(pt.y - startPt.y));
+    } else if (currentTool === 'circle') {
+      currentElement.setAttribute('r', Math.sqrt(Math.pow(pt.x - startPt.x, 2) + Math.pow(pt.y - startPt.y, 2)));
+    } else if (currentTool === 'triangle') {
+      currentElement.setAttribute('points', `${startPt.x},${pt.y} ${(startPt.x + pt.x)/2},${startPt.y} ${pt.x},${pt.y}`);
+    }
   }
 
-  function stopDrawing() {
+  function handleEnd() {
     isDrawing = false;
+    draggingTarget = null;
+    currentElement = null;
   }
 
-  // ইভেন্ট লিসেনার (মাউস ও টাচ স্ক্রিন উভয়ের জন্য)
-  svgBoard.addEventListener('mousedown', startDrawing);
-  svgBoard.addEventListener('mousemove', draw);
-  window.addEventListener('mouseup', stopDrawing);
+  svgBoard.addEventListener('mousedown', handleStart);
+  svgBoard.addEventListener('mousemove', handleMove);
+  window.addEventListener('mouseup', handleEnd);
 
-  svgBoard.addEventListener('touchstart', startDrawing);
-  svgBoard.addEventListener('touchmove', draw);
-  window.addEventListener('touchend', stopDrawing);
+  svgBoard.addEventListener('touchstart', handleStart);
+  svgBoard.addEventListener('touchmove', handleMove);
+  window.addEventListener('touchend', handleEnd);
 
-  // মোছার বাটন
-  clearBtn.addEventListener('click', () => {
-    svgBoard.innerHTML = '';
+  flipHBtn.addEventListener('click', () => {
+    if (selectedElement) {
+      saveState();
+      const bbox = selectedElement.getBBox();
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+      const transform = selectedElement.getAttribute('transform') || '';
+      selectedElement.setAttribute('transform', `${transform} translate(${cx}, ${cy}) scale(-1, 1) translate(${-cx}, ${-cy})`);
+    }
   });
 
-  // সরাসরি SVG ডাউনলোড
+  flipVBtn.addEventListener('click', () => {
+    if (selectedElement) {
+      saveState();
+      const bbox = selectedElement.getBBox();
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+      const transform = selectedElement.getAttribute('transform') || '';
+      selectedElement.setAttribute('transform', `${transform} translate(${cx}, ${cy}) scale(1, -1) translate(${-cx}, ${-cy})`);
+    }
+  });
+
+  layerUpBtn.addEventListener('click', () => {
+    if (selectedElement && selectedElement.nextElementSibling) {
+      saveState();
+      svgBoard.insertBefore(selectedElement.nextElementSibling, selectedElement);
+    }
+  });
+
+  layerDownBtn.addEventListener('click', () => {
+    if (selectedElement && selectedElement.previousElementSibling) {
+      saveState();
+      svgBoard.insertBefore(selectedElement, selectedElement.previousElementSibling);
+    }
+  });
+
+  deleteBtn.addEventListener('click', () => {
+    if (selectedElement) {
+      saveState();
+      selectedElement.remove();
+      selectedElement = null;
+    }
+  });
+
+  clearAllBtn.addEventListener('click', () => {
+    saveState();
+    commitBezierShape();
+    svgBoard.innerHTML = '';
+    activateSelectMode();
+  });
+
   downloadBtn.addEventListener('click', () => {
-    const svgContent = new XMLSerializer().serializeToString(svgBoard);
-    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'my_vector_logo.svg';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    commitBezierShape();
+    deselect();
+    const svgData = new XMLSerializer().serializeToString(svgBoard);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = svgUrl;
+    downloadLink.download = 'vector-logo.svg';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
   });
 </script>
-
 </body>
 </html>
