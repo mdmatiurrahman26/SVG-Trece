@@ -3,95 +3,115 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>স্মুথ লোগো SVG কনভার্টার</title>
+  <title>লাইভ SVG লোগো মেকার</title>
   <style>
-    body { font-family: sans-serif; background: #1b263b; color: #fff; text-align: center; padding: 20px; }
-    .container { max-width: 450px; margin: 0 auto; background: #0d1b2a; padding: 20px; border-radius: 12px; }
-    h2 { color: #4cc9f0; }
-    input[type="file"] { margin: 15px 0; }
-    #preview-box { background: #fff; border: 2px dashed #4cc9f0; min-height: 250px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 15px; padding: 10px; }
-    svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-    button { background: #2ec4b6; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
-    button:hover { background: #20a39e; }
+    body { font-family: Arial, sans-serif; background: #111827; color: #fff; text-align: center; padding: 20px; margin: 0; }
+    .container { max-width: 500px; margin: 0 auto; background: #1f2937; padding: 20px; border-radius: 12px; }
+    h2 { color: #38bdf8; margin-bottom: 15px; }
+    
+    .toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap; }
+    .toolbar button, .toolbar input { padding: 8px 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+    .toolbar button { background: #374151; color: #fff; }
+    .toolbar button.active { background: #0284c7; }
+    
+    #canvas-container { background: #ffffff; width: 100%; height: 320px; border-radius: 8px; border: 2px solid #38bdf8; touch-action: none; cursor: crosshair; }
+    
+    .action-btn { background: #10b981; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 15px; width: 100%; }
+    .action-btn:hover { background: #059669; }
+    .clear-btn { background: #ef4444; margin-top: 10px; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>স্মুথ লোগো SVG কনভার্টার</h2>
-  <input type="file" id="imageInput" accept="image/*">
+  <h2>লাইভ SVG লোগো মেকার</h2>
   
-  <div id="preview-box">
-    <span id="placeholderText" style="color: #666;">ছবি সিলেক্ট করুন</span>
-    <canvas id="canvas" style="display:none;"></canvas>
-    <div id="svgContainer"></div>
+  <div class="toolbar">
+    <input type="color" id="colorPicker" value="#8B5A2B">
+    <input type="range" id="brushSize" min="2" max="30" value="8">
+    <button id="clearBtn" class="clear-btn" style="margin:0; width:auto;">মুছে ফেলুন</button>
   </div>
 
-  <button id="downloadBtn" style="display:none;">SVG ফাইল ডাউনলোড করুন</button>
+  <div id="canvas-container">
+    <svg id="svgBoard" width="100%" height="100%" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg" style="background: #ffffff;"></svg>
+  </div>
+
+  <button id="downloadBtn" class="action-btn">HD SVG লোগো ডাউনলোড করুন</button>
 </div>
 
-<!-- ImageTracer engine for ultra smooth vectorization -->
-<script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer.min.js"></script>
 <script>
-  const imageInput = document.getElementById('imageInput');
-  const svgContainer = document.getElementById('svgContainer');
-  const placeholderText = document.getElementById('placeholderText');
+  const svgBoard = document.getElementById('svgBoard');
+  const colorPicker = document.getElementById('colorPicker');
+  const brushSize = document.getElementById('brushSize');
+  const clearBtn = document.getElementById('clearBtn');
   const downloadBtn = document.getElementById('downloadBtn');
-  let generatedSVG = "";
 
-  imageInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+  let isDrawing = false;
+  let currentPath = null;
+  let pathData = '';
 
-    const reader = new FileReader();
-    reader.onload = function(event) {
-      const img = new Image();
-      img.onload = function() {
-        placeholderText.style.display = 'none';
+  function getPoint(e) {
+    const rect = svgBoard.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    // SVG ক্যানভাসের স্কেল অনুযায়ী পয়েন্ট হিসাব করা
+    const x = (clientX - rect.left) * (400 / rect.width);
+    const y = (clientY - rect.top) * (320 / rect.height);
+    return { x: x.toFixed(1), y: y.toFixed(1) };
+  }
 
-        // 4x রেজুলেশন ক্যানভাসে ড্র করে খাঁজকাটা ভাব পুরোপুরি দূর করা
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const scale = 4;
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  function startDrawing(e) {
+    isDrawing = true;
+    const pt = getPoint(e);
+    pathData = `M ${pt.x} ${pt.y}`;
 
-        // লোগো অপটিমাইজেশন সেটিংস
-        const options = {
-          corsenabled: false,
-          ltres: 0.01,         // লাইন ট্রেসিং নিখুঁত করবে
-          qtres: 0.01,         // কার্ভ বা বাক একদম স্মুথ করবে
-          pathomit: 2,          // কোনো নয়েজ রাখবে না
-          blurradius: 1,        // হালকা ব্লারিং দিয়ে স্মুথনেস বাড়ানো
-          blurdelta: 20,
-          colorsampling: 0,
-          numberofcolors: 8,    // কালার সংখ্যা ঠিক রাখবে
-          strokewidth: 0,
-          scale: 1 / scale
-        };
+    currentPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    currentPath.setAttribute('d', pathData);
+    currentPath.setAttribute('stroke', colorPicker.value);
+    currentPath.setAttribute('stroke-width', brushSize.value);
+    currentPath.setAttribute('fill', 'none');
+    currentPath.setAttribute('stroke-linecap', 'round');
+    currentPath.setAttribute('stroke-linejoin', 'round');
 
-        ImageTracer.imageToSVG(canvas.toDataURL(), function(svgstr) {
-          generatedSVG = svgstr;
-          svgContainer.innerHTML = svgstr;
-          downloadBtn.style.display = 'inline-block';
-        }, options);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+    svgBoard.appendChild(currentPath);
+  }
+
+  function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const pt = getPoint(e);
+    pathData += ` L ${pt.x} ${pt.y}`;
+    currentPath.setAttribute('d', pathData);
+  }
+
+  function stopDrawing() {
+    isDrawing = false;
+  }
+
+  // ইভেন্ট লিসেনার (মাউস ও টাচ স্ক্রিন উভয়ের জন্য)
+  svgBoard.addEventListener('mousedown', startDrawing);
+  svgBoard.addEventListener('mousemove', draw);
+  window.addEventListener('mouseup', stopDrawing);
+
+  svgBoard.addEventListener('touchstart', startDrawing);
+  svgBoard.addEventListener('touchmove', draw);
+  window.addEventListener('touchend', stopDrawing);
+
+  // মোছার বাটন
+  clearBtn.addEventListener('click', () => {
+    svgBoard.innerHTML = '';
   });
 
-  downloadBtn.addEventListener('click', function() {
-    if (!generatedSVG) return;
-    const blob = new Blob([generatedSVG], { type: 'image/svg+xml' });
+  // সরাসরি SVG ডাউনলোড
+  downloadBtn.addEventListener('click', () => {
+    const svgContent = new XMLSerializer().serializeToString(svgBoard);
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
+    
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ultra_smooth_logo.svg';
+    a.download = 'my_vector_logo.svg';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
