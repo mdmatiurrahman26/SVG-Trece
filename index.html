@@ -9,8 +9,8 @@
     .container { max-width: 450px; margin: 0 auto; background: #0d1b2a; padding: 20px; border-radius: 12px; }
     h2 { color: #4cc9f0; }
     input[type="file"] { margin: 15px 0; }
-    #preview-box { background: #fff; border: 2px dashed #4cc9f0; min-height: 250px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 15px; }
-    img, svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    #preview-box { background: #fff; border: 2px dashed #4cc9f0; min-height: 250px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 15px; padding: 10px; }
+    svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
     button { background: #2ec4b6; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
     button:hover { background: #20a39e; }
   </style>
@@ -30,7 +30,7 @@
   <button id="downloadBtn" style="display:none;">SVG ফাইল ডাউনলোড করুন</button>
 </div>
 
-<!-- ImageTracer.js Library -->
+<!-- ImageTracer engine for ultra smooth vectorization -->
 <script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer.min.js"></script>
 <script>
   const imageInput = document.getElementById('imageInput');
@@ -48,11 +48,11 @@
       const img = new Image();
       img.onload = function() {
         placeholderText.style.display = 'none';
-        
-        // হাই-রেজুলেশন ক্যানভাসে স্কেল করা (খাঁজকাটা ভাব কমানোর জন্য)
+
+        // 4x রেজুলেশন ক্যানভাসে ড্র করে খাঁজকাটা ভাব পুরোপুরি দূর করা
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const scale = 3; // 3x Scaling for Ultra Smooth Edges
+        const scale = 4;
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         
@@ -60,21 +60,20 @@
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // অতি স্মুথ ট্রেসিং সেটিংস
+        // লোগো অপটিমাইজেশন সেটিংস
         const options = {
           corsenabled: false,
-          ltres: 0.1,         // লাইন সোজা ও স্মুথ রাখার মান
-          qtres: 0.1,         // কার্ভ বা বাকের মান
-          pathomit: 8,        // ছোটখাটো দাগ/নয়েজ মুছে ফেলবে
-          blurradius: 2,      // স্মুথনেসের জন্য হাল্কা ব্লার
-          blurdelta: 10,
-          colorsampling: 2,   // সুনির্দিষ্ট কালার নির্বাচন
-          numberofcolors: 16, // লোগোর সঠিক রঙ বজায় রাখার জন্য
+          ltres: 0.01,         // লাইন ট্রেসিং নিখুঁত করবে
+          qtres: 0.01,         // কার্ভ বা বাক একদম স্মুথ করবে
+          pathomit: 2,          // কোনো নয়েজ রাখবে না
+          blurradius: 1,        // হালকা ব্লারিং দিয়ে স্মুথনেস বাড়ানো
+          blurdelta: 20,
+          colorsampling: 0,
+          numberofcolors: 8,    // কালার সংখ্যা ঠিক রাখবে
           strokewidth: 0,
-          scale: 1 / scale    // অরিজিনাল মাপে ফিরিয়ে আনা
+          scale: 1 / scale
         };
 
-        // ট্রেসিং শুরু
         ImageTracer.imageToSVG(canvas.toDataURL(), function(svgstr) {
           generatedSVG = svgstr;
           svgContainer.innerHTML = svgstr;
@@ -92,7 +91,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'smooth_logo.svg';
+    a.download = 'ultra_smooth_logo.svg';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
