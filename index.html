@@ -3,101 +3,102 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>স্মুথ SVG ট্রেসার অ্যাপ</title>
+  <title>স্মুথ লোগো SVG কনভার্টার</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #0f172a; color: #fff; }
-    .box { background: #1e293b; padding: 25px; border-radius: 12px; max-width: 500px; margin: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-    h2 { color: #38bdf8; margin-bottom: 20px; }
-    input[type="file"] { margin: 15px 0; color: #cbd5e1; }
-    button { background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; display: none; margin: 15px auto; transition: 0.3s; }
-    button:hover { background: #059669; }
-    #svg-container { margin-top: 20px; border: 2px dashed #475569; padding: 15px; background: #ffffff; border-radius: 8px; min-height: 220px; display: flex; align-items: center; justify-content: center; overflow: auto; }
-    #svg-container svg { max-width: 100%; height: auto; }
+    body { font-family: sans-serif; background: #1b263b; color: #fff; text-align: center; padding: 20px; }
+    .container { max-width: 450px; margin: 0 auto; background: #0d1b2a; padding: 20px; border-radius: 12px; }
+    h2 { color: #4cc9f0; }
+    input[type="file"] { margin: 15px 0; }
+    #preview-box { background: #fff; border: 2px dashed #4cc9f0; min-height: 250px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 15px; }
+    img, svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+    button { background: #2ec4b6; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
+    button:hover { background: #20a39e; }
   </style>
 </head>
 <body>
 
-  <div class="box">
-    <h2>স্মুথ লোগো SVG কনভার্টার</h2>
-    <input type="file" id="imageInput" accept="image/*">
-    <div id="svg-container"><span style="color:#64748b;">ফাইল সিলেক্ট করলে স্মুথ আউটপুট পাবেন</span></div>
-    <button id="downloadBtn">SVG ফাইল ডাউনলোড করুন</button>
+<div class="container">
+  <h2>স্মুথ লোগো SVG কনভার্টার</h2>
+  <input type="file" id="imageInput" accept="image/*">
+  
+  <div id="preview-box">
+    <span id="placeholderText" style="color: #666;">ছবি সিলেক্ট করুন</span>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="svgContainer"></div>
   </div>
 
-  <canvas id="canvas" style="display:none;"></canvas>
+  <button id="downloadBtn" style="display:none;">SVG ফাইল ডাউনলোড করুন</button>
+</div>
 
-  <script>
-    let generatedSvgString = "";
+<!-- ImageTracer.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer.min.js"></script>
+<script>
+  const imageInput = document.getElementById('imageInput');
+  const svgContainer = document.getElementById('svgContainer');
+  const placeholderText = document.getElementById('placeholderText');
+  const downloadBtn = document.getElementById('downloadBtn');
+  let generatedSVG = "";
 
-    document.getElementById('imageInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+  imageInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.getElementById('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          canvas.width = img.width;
-          canvas.height = img.height;
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      const img = new Image();
+      img.onload = function() {
+        placeholderText.style.display = 'none';
+        
+        // হাই-রেজুলেশন ক্যানভাসে স্কেল করা (খাঁজকাটা ভাব কমানোর জন্য)
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = 3; // 3x Scaling for Ultra Smooth Edges
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // পিক্সেল স্মুথ করার ব্যাকগ্রাউন্ড ফিল্টার
-          ctx.filter = 'contrast(150%) blur(1px)';
-          ctx.drawImage(img, 0, 0);
-
-          const imgData = ctx.getImageData(0, 0, img.width, img.height);
-          const data = imgData.data;
-
-          let pathData = "";
-          const step = 2;
-
-          for (let y = 0; y < img.height; y += step) {
-            for (let x = 0; x < img.width; x += step) {
-              const idx = (y * img.width + x) * 4;
-              const r = data[idx];
-              const g = data[idx + 1];
-              const b = data[idx + 2];
-              const alpha = data[idx + 3];
-
-              // অবজেক্ট শনাক্তকরণ
-              const isDark = (r < 200 || g < 200 || b < 200) && alpha > 40;
-
-              if (isDark) {
-                // স্মুথ সার্কেল রাউন্ড শেপ দিয়ে ভেক্টরাইজেশন
-                pathData += `M ${x} ${y} m -1.5,0 a 1.5,1.5 0 1,0 3,0 a 1.5,1.5 0 1,0 -3,0 `;
-              }
-            }
-          }
-
-          // আসল কালার সেট করা
-          const colorHex = '#8b5a2b';
-          generatedSvgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${img.width} ${img.height}" width="${img.width}" height="${img.height}">
-            <path d="${pathData}" fill="${colorHex}" />
-          </svg>`;
-
-          const container = document.getElementById('svg-container');
-          container.innerHTML = generatedSvgString;
-          document.getElementById('downloadBtn').style.display = 'block';
+        // অতি স্মুথ ট্রেসিং সেটিংস
+        const options = {
+          corsenabled: false,
+          ltres: 0.1,         // লাইন সোজা ও স্মুথ রাখার মান
+          qtres: 0.1,         // কার্ভ বা বাকের মান
+          pathomit: 8,        // ছোটখাটো দাগ/নয়েজ মুছে ফেলবে
+          blurradius: 2,      // স্মুথনেসের জন্য হাল্কা ব্লার
+          blurdelta: 10,
+          colorsampling: 2,   // সুনির্দিষ্ট কালার নির্বাচন
+          numberofcolors: 16, // লোগোর সঠিক রঙ বজায় রাখার জন্য
+          strokewidth: 0,
+          scale: 1 / scale    // অরিজিনাল মাপে ফিরিয়ে আনা
         };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
 
-    document.getElementById('downloadBtn').addEventListener('click', function() {
-      const blob = new Blob([generatedSvgString], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'smooth_logo.svg';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
-  </script>
+        // ট্রেসিং শুরু
+        ImageTracer.imageToSVG(canvas.toDataURL(), function(svgstr) {
+          generatedSVG = svgstr;
+          svgContainer.innerHTML = svgstr;
+          downloadBtn.style.display = 'inline-block';
+        }, options);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  downloadBtn.addEventListener('click', function() {
+    if (!generatedSVG) return;
+    const blob = new Blob([generatedSVG], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'smooth_logo.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+</script>
 
 </body>
 </html>
